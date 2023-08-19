@@ -117,39 +117,45 @@ class AppDemo(QWidget):
         if extension.lower() == 'png':
             try:
                 parameters = img.info['parameters']
-                parameters = "Prompt: " + parameters
+                if not parameters.startswith("Positive prompt"):
+                    parameters = "Positive prompt: " + parameters
             except:
-                try:
-                    parameters = str(img.info['comment'])
-                    comfy = True
-                except:
-                    return "Error loading prompt info."
+                print("Error loading prompt info")
+                return "Error loading prompt info."
         elif extension.lower() in ("jpg", "jpeg", "webp"):
             try:
                 exif = piexif.load(img.info["exif"])
                 parameters = (exif or {}).get("Exif", {}).get(piexif.ExifIFD.UserComment, b'')
                 parameters = piexif.helper.UserComment.load(parameters)
-                parameters = "Prompt: " + parameters
+                if not parameters.startswith("Positive prompt"):
+                    parameters = "Positive prompt: " + parameters
             except:
                 try:
                     parameters = str(img.info['comment'])
                     comfy = True
+                    # legacy fixes
+                    parameters = parameters.replace("Positive Prompt", "Positive prompt")
+                    parameters = parameters.replace("Negative Prompt", "Negative prompt")
+                    parameters = parameters.replace("Start at Step", "Start at step")
+                    parameters = parameters.replace("End at Step", "End at step")
+                    parameters = parameters.replace("Denoising Strength", "Denoising strength")
                 except:
                     print("Error loading prompt info")
                     return "Error loading prompt info."
-        if(comfy):
+        if(comfy and extension.lower() == 'jpeg'):
             parameters = parameters.replace('\\n',' ')
         else:
             parameters = parameters.replace('\n',' ')
 
 
         patterns = [
-            "Positive Prompt: ",
-            "Prompt: ",
+            "Positive prompt: ",
             "Negative prompt: ",
-            "Negative Prompt: ",
             "Steps: ",
+            "Start at step: ",
+            "End at step: ",
             "Sampler: ",
+            "Scheduler: ",
             "CFG scale: ",
             "Seed: ",
             "Size: ",
@@ -166,9 +172,8 @@ class AppDemo(QWidget):
             "Hires upscaler: ",
             "Template: ",
             "Negative Template: ",
-            "Seed: "
         ]
-        if(comfy):
+        if(comfy and extension.lower() == 'jpeg'):
             parameters = parameters[2:]
             parameters = parameters[:-1]
 
@@ -180,18 +185,13 @@ class AppDemo(QWidget):
 
         for item in range(len(keys)):
             # print(keys[item],values[item].rstrip(', '))
-            if(keys[item] != "Prompt: " and keys[item] != "Positive Prompt: "  and keys[item] != "Negative prompt: " and keys[item] != "Negative Prompt: " and keys[item] != "Template: "  and keys[item] != "Negative Template: "):
+            if(keys[item] != "Positive prompt: "  and keys[item] != "Negative prompt: " and keys[item] != "Template: "  and keys[item] != "Negative Template: "):
                 result_string += keys[item] + values[item].rstrip(', ')
                 result_string += "\n"
             results[keys[item].replace(": ","")] = values[item].rstrip(', ')
         #print(results.keys())
-        
-        if(comfy):
-            #print("fixing key")
-            results['Prompt'] = results['Positive Prompt']
-            results['Negative prompt'] = results['Negative Prompt']
 
-        self.prompt_box.setText(results['Prompt'])
+        self.prompt_box.setText(results['Positive prompt'])
         self.negative_box.setText(results['Negative prompt'])
         self.other_data.setText(result_string)
         return result_string
